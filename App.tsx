@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { LogIn, LayoutDashboard, Users, UserCog, Calendar, Activity, LogOut, Menu, X, Filter, BrainCircuit, FileText, CalendarPlus, Clock, Trash2, Plus, User, Edit, BarChart2, PieChart as PieChartIcon, TrendingUp, Award, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { LogIn, LayoutDashboard, Users, UserCog, Calendar, Activity, LogOut, Menu, X, Filter, BrainCircuit, FileText, CalendarPlus, Clock, Trash2, Plus, User, Edit, BarChart2, PieChart as PieChartIcon, TrendingUp, Award, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Alumno, Entrenador, EvaluacionFisica, Reserva, Pago, Clase } from './types';
+import { supabase } from './services/supabaseClient';
 import {
   fetchAlumnos, updateAlumno, deleteAlumno,
   fetchEntrenadores, updateEntrenador, deleteEntrenador, createEntrenador,
@@ -19,16 +20,25 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim() && password.trim()) {
-      onLogin();
+    if (!email.trim() || !password.trim()) {
+      setError('Por favor ingrese correo y contraseña.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (authError) {
+      setError('Credenciales inválidas. Intente de nuevo.');
     } else {
-      setError('Por favor ingrese usuario y contraseña.');
+      onLogin();
     }
   };
 
@@ -40,17 +50,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="relative">
               <div className="absolute inset-0 bg-pilates-200 rounded-full animate-ping opacity-25"></div>
               <div className="w-20 h-20 bg-gradient-to-tr from-pilates-500 to-pilates-700 rounded-full flex items-center justify-center shadow-lg shadow-pilates-200 relative z-10">
-                {/* Modern Abstract Icon representing Balance/Movement */}
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  width="40" 
-                  height="40" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   className="text-white"
                 >
                   <circle cx="12" cy="12" r="10" />
@@ -65,13 +74,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Usuario</label>
+            <label className="block text-sm font-medium text-stone-700 mb-1">Correo electrónico</label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-pilates-500 focus:border-pilates-500 outline-none transition-colors"
-              placeholder="admin"
+              placeholder="admin@ejemplo.com"
             />
           </div>
           <div>
@@ -87,10 +96,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           <button
             type="submit"
-            className="w-full bg-pilates-600 hover:bg-pilates-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+            disabled={loading}
+            className="w-full bg-pilates-600 hover:bg-pilates-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            <LogIn size={18} />
-            Ingresar
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+            {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
       </div>
@@ -255,10 +265,7 @@ const DashboardOverview: React.FC = () => {
     if (!val) return;
     
     if (periodType === 'week') {
-        // value is "2023-W10"
-        const [y, w] = val.split('-W');
-        const d = new Date(parseInt(y), 0, (parseInt(w) - 1) * 7 + 1); // rough approx
-        setSelectedDate(d);
+        setSelectedDate(new Date(val));
     } else if (periodType === 'month') {
         // value is "2023-10"
         const [y, m] = val.split('-');
@@ -296,8 +303,8 @@ const DashboardOverview: React.FC = () => {
 
             {/* Dynamic Date Selectors */}
             {periodType === 'week' && (
-                <input 
-                    type="week" 
+                <input
+                    type="date"
                     className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pilates-500 outline-none"
                     onChange={handleDateChange}
                 />
@@ -713,7 +720,7 @@ const StudentsView: React.FC = () => {
             <thead>
               <tr className="bg-stone-50 border-b border-stone-100 text-left">
                 <th className="px-4 py-3 font-semibold text-stone-600">Nombre</th>
-                <th className="px-4 py-3 font-semibold text-stone-600">Email</th>
+                <th className="px-4 py-3 font-semibold text-stone-600">Correo</th>
                 <th className="px-4 py-3 font-semibold text-stone-600">Teléfono</th>
                 <th className="px-4 py-3 font-semibold text-stone-600">Patología</th>
                 <th className="px-4 py-3 font-semibold text-stone-600 text-center">Clases</th>
@@ -1727,7 +1734,7 @@ const CoachesView: React.FC = () => {
             <thead>
               <tr className="bg-stone-50 border-b border-stone-100 text-left">
                 <th className="px-4 py-3 font-semibold text-stone-600">Nombre</th>
-                <th className="px-4 py-3 font-semibold text-stone-600">Email</th>
+                <th className="px-4 py-3 font-semibold text-stone-600">Correo</th>
                 <th className="px-4 py-3 font-semibold text-stone-600">Teléfono</th>
                 <th className="px-4 py-3 font-semibold text-stone-600">Especialidad</th>
                 <th className="px-4 py-3 font-semibold text-stone-600">Registro</th>
@@ -1804,8 +1811,30 @@ const CoachesView: React.FC = () => {
 // --- Main Layout ---
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'classes' | 'coaches'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-100">
+        <Loader2 size={32} className="animate-spin text-pilates-500" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
@@ -1873,7 +1902,7 @@ const App: React.FC = () => {
 
         <div className="absolute bottom-0 w-full p-4 border-t border-stone-100">
           <button 
-            onClick={() => setIsAuthenticated(false)}
+            onClick={() => supabase.auth.signOut()}
             className="w-full flex items-center gap-3 px-4 py-3 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             <LogOut size={20} />

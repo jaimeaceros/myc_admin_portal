@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { Alumno, Entrenador, Clase, Reserva, Pago, EvaluacionFisica } from '../types';
 
 // --- Helpers ---
@@ -61,35 +61,10 @@ export const deleteEntrenador = async (id: string): Promise<void> => {
 export const createEntrenador = async (
   data: { nombre: string; email: string; password: string; telefono: string; especialidad: string }
 ): Promise<Entrenador> => {
-  // 1. Create auth user
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email: data.email,
-    password: data.password,
-    email_confirm: true,
-    user_metadata: { role: 'entrenador' },
+  const { data: result, error } = await supabase.functions.invoke('create-entrenador', {
+    body: data,
   });
-  if (authError) throw authError;
-
-  // 2. Insert trainer record using the new auth user's id
-  const { data: result, error } = await supabaseAdmin
-    .from('entrenadores')
-    .insert({
-      id: authData.user.id,
-      nombre: data.nombre,
-      email: data.email,
-      celular: data.telefono || null,
-      especialidad: data.especialidad,
-      fecha_registro: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (error) {
-    // Rollback: delete the auth user so we don't leave an orphan
-    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-    throw error;
-  }
-
+  if (error) throw error;
   return mapEntrenador(result);
 };
 
